@@ -49,3 +49,27 @@ int main(int argc, char* argv[]) {
     printf("Se ha realizado la validación de Sudoku completada.\n");
     return 0;
 }
+
+// Función para leer el Sudoku desde un archivo usando mmap()
+void read_sudoku_from_file(const char* filename) {
+    int fd = open(filename, O_RDONLY);
+    if (fd == -1) {
+        perror("Error al abrir el archivo");
+        exit(EXIT_FAILURE);
+    }
+
+    char* data = mmap(NULL, SIZE * SIZE, PROT_READ, MAP_PRIVATE, fd, 0);
+    if (data == MAP_FAILED) {
+        perror("Error en mmap");
+        exit(EXIT_FAILURE);
+    }
+    
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            sudoku[i][j] = data[i * SIZE + j] - '0';
+        }
+    }
+    
+    munmap(data, SIZE * SIZE);
+    close(fd);
+}
