@@ -73,3 +73,79 @@ void read_sudoku_from_file(const char* filename) {
     munmap(data, SIZE * SIZE);
     close(fd);
 }
+
+// Función auxiliar para imprimir el Sudoku
+void print_sudoku() {
+    printf("Sudoku a validar:\n");
+    for (int i = 0; i < SIZE; i++) {
+        for (int j = 0; j < SIZE; j++) {
+            printf("%d ", sudoku[i][j]);
+        }
+        printf("\n");
+    }
+}
+
+// Función auxiliar para validar si un arreglo contiene los números 1-9 sin repetir
+int validate_array(int* arr) {
+    int seen[SIZE] = {0};
+    for (int i = 0; i < SIZE; i++) {
+        if (arr[i] < 1 || arr[i] > 9 || seen[arr[i] - 1]) {
+            return 0;
+        }
+        seen[arr[i] - 1] = 1;
+    }
+    return 1;
+}
+
+// Función para revisar las filas usando OpenMP
+void* check_rows(void* arg) {
+    printf("Revisando filas...\n");
+    #pragma omp parallel for
+    for (int i = 0; i < SIZE; i++) {
+        int row[SIZE];
+        for (int j = 0; j < SIZE; j++) {
+            row[j] = sudoku[i][j];
+        }
+        if (!validate_array(row)) {
+            printf("Fila %d inválida.\n", i + 1);
+        }
+    }
+    return NULL;
+}
+
+// Función para revisar las columnas usando OpenMP
+void* check_columns(void* arg) {
+    printf("Revisando columnas...\n");
+    #pragma omp parallel for
+    for (int i = 0; i < SIZE; i++) {
+        int column[SIZE];
+        for (int j = 0; j < SIZE; j++) {
+            column[j] = sudoku[j][i];
+        }
+        if (!validate_array(column)) {
+            printf("Columna %d inválida.\n", i + 1);
+        }
+    }
+    return NULL;
+}
+
+// Función para revisar los subcuadrantes 3x3 usando OpenMP
+void* check_subgrids(void* arg) {
+    printf("Revisando subcuadrantes...\n");
+    #pragma omp parallel for collapse(2)
+    for (int i = 0; i < SIZE; i += 3) {
+        for (int j = 0; j < SIZE; j += 3) {
+            int subgrid[SIZE];
+            int index = 0;
+            for (int k = 0; k < 3; k++) {
+                for (int l = 0; l < 3; l++) {
+                    subgrid[index++] = sudoku[i + k][j + l];
+                }
+            }
+            if (!validate_array(subgrid)) {
+                printf("Subgrid en (%d, %d) inválido.\n", i + 1, j + 1);
+            }
+        }
+    }
+    return NULL;
+}
