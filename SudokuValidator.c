@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <omp.h>
+#include <sys/wait.h>
 
 #define SIZE 9
 
@@ -104,14 +105,19 @@ void read_sudoku_from_file(const char* filename) {
     close(fd);
 }
 
-// Función auxiliar para imprimir el Sudoku
+// Función auxiliar para imprimir el Sudoku con formato mejorado
 void print_sudoku() {
     printf("Sudoku a validar:\n");
+    printf("+-------+-------+-------+\n");
     for (int i = 0; i < SIZE; i++) {
         for (int j = 0; j < SIZE; j++) {
+            if (j % 3 == 0) printf("| ");
             printf("%d ", sudoku[i][j]);
         }
-        printf("\n");
+        printf("|\n");
+        if ((i + 1) % 3 == 0) {
+            printf("+-------+-------+-------+\n");
+        }
     }
 }
 
