@@ -11,6 +11,7 @@
 
 // Matriz para almacenar el Sudoku
 int sudoku[SIZE][SIZE];
+int valid = 1; // Variable global para verificar si el Sudoku es válido
 
 // Estructura para pasar argumentos a los threads
 typedef struct {
@@ -23,6 +24,7 @@ void* check_subgrids(void* arg);
 void read_sudoku_from_file(const char* filename);
 void print_sudoku();
 int validate_array(int* arr);
+void execute_ps_command(pid_t parent_pid);
 
 int main(int argc, char* argv[]) {
     if (argc != 2) {
@@ -33,6 +35,17 @@ int main(int argc, char* argv[]) {
     // Leer el Sudoku desde el archivo
     read_sudoku_from_file(argv[1]);
     print_sudoku();
+
+    // Obtener el PID del proceso actual
+    pid_t parent_pid = getpid();
+    
+    // Crear un proceso hijo para ejecutar el comando ps
+    pid_t pid = fork();
+    if (pid == 0) {
+        // Proceso hijo
+        execute_ps_command(parent_pid);
+        exit(EXIT_SUCCESS);
+    }
 
     // Crear hilos para verificar filas y columnas
     pthread_t tid_columns, tid_rows;
@@ -46,8 +59,25 @@ int main(int argc, char* argv[]) {
     // Validar los subgrids en el hilo principal
     check_subgrids(NULL);
     
-    printf("Se ha realizado la validación de Sudoku completada.\n");
+    // Esperar al proceso hijo
+    wait(NULL);
+    
+    if (valid) {
+        printf("\n✅ La solución del Sudoku es VÁLIDA.\n");
+    } else {
+        printf("\n❌ La solución del Sudoku es INVÁLIDA.\n");
+    }
+    
     return 0;
+}
+
+// Función para ejecutar el comando ps
+void execute_ps_command(pid_t parent_pid) {
+    char parent_pid_str[10];
+    sprintf(parent_pid_str, "%d", parent_pid);
+    execlp("ps", "ps", "-p", parent_pid_str, "-lLf", NULL);
+    perror("Error ejecutando ps");
+    exit(EXIT_FAILURE);
 }
 
 // Función para leer el Sudoku desde un archivo usando mmap()
@@ -107,7 +137,8 @@ void* check_rows(void* arg) {
             row[j] = sudoku[i][j];
         }
         if (!validate_array(row)) {
-            printf("Fila %d inválida.\n", i + 1);
+            printf("❌ Fila %d inválida.\n", i + 1);
+            valid = 0;
         }
     }
     return NULL;
@@ -123,7 +154,8 @@ void* check_columns(void* arg) {
             column[j] = sudoku[j][i];
         }
         if (!validate_array(column)) {
-            printf("Columna %d inválida.\n", i + 1);
+            printf("❌ Columna %d inválida.\n", i + 1);
+            valid = 0;
         }
     }
     return NULL;
@@ -143,7 +175,8 @@ void* check_subgrids(void* arg) {
                 }
             }
             if (!validate_array(subgrid)) {
-                printf("Subgrid en (%d, %d) inválido.\n", i + 1, j + 1);
+                printf("❌ Subgrid en (%d, %d) inválido.\n", i + 1, j + 1);
+                valid = 0;
             }
         }
     }
