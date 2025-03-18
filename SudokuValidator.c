@@ -35,13 +35,16 @@ int main(int argc, char* argv[]) {
     read_sudoku_from_file(argv[1]);
     print_sudoku();
     printf("\n🔍 Revisando el Sudoku...\n\n");
-    
+
     pid_t parent_pid = getpid();
     pid_t pid = fork();
     if (pid == 0) {
         execute_ps_command(parent_pid);
         exit(EXIT_SUCCESS);
     }
+
+    // 🔹 Limitar OpenMP a un solo hilo en todo el programa
+    omp_set_num_threads(1);
 
     pthread_t tid_columns, tid_rows;
     pthread_create(&tid_columns, NULL, check_columns, NULL);
@@ -122,6 +125,11 @@ int validate_array(int* arr) {
 
 void* check_rows(void* arg) {
     printf("➡️ Revisando filas...\n");
+    #pragma omp parallel
+    {
+        printf("Thread %d de %d ejecutando en OpenMP\n", omp_get_thread_num(), omp_get_num_threads());
+    }
+    
     #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int row[SIZE];
@@ -130,17 +138,19 @@ void* check_rows(void* arg) {
         }
         if (!validate_array(row)) {
             printf("❌ Fila %d inválida.\n", i + 1);
-            #pragma omp critical
-            {
-                valid = 0;
-            }
-        }        
+            valid = 0;
+        }
     }
     return NULL;
 }
 
 void* check_columns(void* arg) {
     printf("➡️ Revisando columnas...\n");
+    #pragma omp parallel
+    {
+        printf("Thread %d de %d ejecutando en OpenMP\n", omp_get_thread_num(), omp_get_num_threads());
+    }
+
     #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int column[SIZE];
@@ -149,44 +159,35 @@ void* check_columns(void* arg) {
         }
         if (!validate_array(column)) {
             printf("❌ Columna %d inválida.\n", i + 1);
-            #pragma omp critical
-            {
-                valid = 0;
-            }
+            valid = 0;
         }
-        
     }
     return NULL;
 }
 
 void* check_subgrids(void* arg) {
+    printf("➡️ Revisando subcuadrantes...\n");
+    #pragma omp parallel
+    {
+        printf("Thread %d de %d ejecutando en OpenMP\n", omp_get_thread_num(), omp_get_num_threads());
+    }
+
     #pragma omp parallel for collapse(2)
     for (int i = 0; i < SIZE; i += 3) {
         for (int j = 0; j < SIZE; j += 3) {
             int subgrid[SIZE] = {0};
             int index = 0;
 
-            // Extraer los números del subgrid
             for (int k = 0; k < 3; k++) {
                 for (int l = 0; l < 3; l++) {
                     subgrid[index++] = sudoku[i + k][j + l];
                 }
             }
 
-            // Validar el subgrid
             if (!validate_array(subgrid)) {
-                // Sección crítica para evitar mezcla de impresión
                 #pragma omp critical
                 {
                     printf("\n❌ Subgrid en (%d, %d) inválido.\n", i + 1, j + 1);
-                    for (int k = 0; k < 3; k++) {
-                        printf("| ");
-                        for (int l = 0; l < 3; l++) {
-                            printf("%d ", sudoku[i + k][j + l]);
-                        }
-                        printf("|\n");
-                    }
-                    printf("---------------------\n");
                     valid = 0;
                 }
             }
@@ -194,4 +195,3 @@ void* check_subgrids(void* arg) {
     }
     return NULL;
 }
-
