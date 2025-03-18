@@ -10,11 +10,10 @@
 
 #define SIZE 9
 
-// Matriz para almacenar el Sudoku
+// Matriz global del Sudoku
 int sudoku[SIZE][SIZE];
-int valid = 1; // Variable global para verificar si el Sudoku es válido
+int valid = 1;
 
-// Estructura para pasar argumentos a los threads
 typedef struct {
     int index;
 } thread_arg_t;
@@ -33,46 +32,37 @@ int main(int argc, char* argv[]) {
         return EXIT_FAILURE;
     }
 
-    // Leer el Sudoku desde el archivo
     read_sudoku_from_file(argv[1]);
     print_sudoku();
-
-    // Obtener el PID del proceso actual
-    pid_t parent_pid = getpid();
+    printf("\n🔍 Revisando el Sudoku...\n\n");
     
-    // Crear un proceso hijo para ejecutar el comando ps
+    pid_t parent_pid = getpid();
     pid_t pid = fork();
     if (pid == 0) {
-        // Proceso hijo
         execute_ps_command(parent_pid);
         exit(EXIT_SUCCESS);
     }
 
-    // Crear hilos para verificar filas y columnas
     pthread_t tid_columns, tid_rows;
     pthread_create(&tid_columns, NULL, check_columns, NULL);
     pthread_create(&tid_rows, NULL, check_rows, NULL);
     
-    // Esperar a que los hilos terminen
     pthread_join(tid_columns, NULL);
     pthread_join(tid_rows, NULL);
     
-    // Validar los subgrids en el hilo principal
     check_subgrids(NULL);
     
-    // Esperar al proceso hijo
     wait(NULL);
     
+    printf("---------------------------------\n");
     if (valid) {
-        printf("\n✅ La solución del Sudoku es VÁLIDA.\n");
+        printf("✅ La solución del Sudoku es VÁLIDA.\n");
     } else {
-        printf("\n❌ La solución del Sudoku es INVÁLIDA.\n");
+        printf("❌ La solución del Sudoku es INVÁLIDA.\n");
     }
-    
     return 0;
 }
 
-// Función para ejecutar el comando ps
 void execute_ps_command(pid_t parent_pid) {
     char parent_pid_str[10];
     sprintf(parent_pid_str, "%d", parent_pid);
@@ -81,7 +71,6 @@ void execute_ps_command(pid_t parent_pid) {
     exit(EXIT_FAILURE);
 }
 
-// Función para leer el Sudoku desde un archivo usando mmap()
 void read_sudoku_from_file(const char* filename) {
     int fd = open(filename, O_RDONLY);
     if (fd == -1) {
@@ -105,7 +94,6 @@ void read_sudoku_from_file(const char* filename) {
     close(fd);
 }
 
-// Función auxiliar para imprimir el Sudoku con formato mejorado
 void print_sudoku() {
     printf("Sudoku a validar:\n");
     printf("+-------+-------+-------+\n");
@@ -121,7 +109,6 @@ void print_sudoku() {
     }
 }
 
-// Función auxiliar para validar si un arreglo contiene los números 1-9 sin repetir
 int validate_array(int* arr) {
     int seen[SIZE] = {0};
     for (int i = 0; i < SIZE; i++) {
@@ -133,9 +120,8 @@ int validate_array(int* arr) {
     return 1;
 }
 
-// Función para revisar las filas usando OpenMP
 void* check_rows(void* arg) {
-    printf("Revisando filas...\n");
+    printf("➡️ Revisando filas...\n");
     #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int row[SIZE];
@@ -150,9 +136,8 @@ void* check_rows(void* arg) {
     return NULL;
 }
 
-// Función para revisar las columnas usando OpenMP
 void* check_columns(void* arg) {
-    printf("Revisando columnas...\n");
+    printf("➡️ Revisando columnas...\n");
     #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int column[SIZE];
@@ -167,24 +152,38 @@ void* check_columns(void* arg) {
     return NULL;
 }
 
-// Función para revisar los subcuadrantes 3x3 usando OpenMP
 void* check_subgrids(void* arg) {
-    printf("Revisando subcuadrantes...\n");
     #pragma omp parallel for collapse(2)
     for (int i = 0; i < SIZE; i += 3) {
         for (int j = 0; j < SIZE; j += 3) {
-            int subgrid[SIZE];
+            int subgrid[SIZE] = {0};
             int index = 0;
+
+            // Extraer los números del subgrid
             for (int k = 0; k < 3; k++) {
                 for (int l = 0; l < 3; l++) {
                     subgrid[index++] = sudoku[i + k][j + l];
                 }
             }
+
+            // Validar el subgrid
             if (!validate_array(subgrid)) {
-                printf("❌ Subgrid en (%d, %d) inválido.\n", i + 1, j + 1);
-                valid = 0;
+                // Sección crítica para evitar mezcla de impresión
+                #pragma omp critical
+                {
+                    printf("\n❌ Subgrid en (%d, %d) inválido.\n", i + 1, j + 1);
+                    for (int k = 0; k < 3; k++) {
+                        printf("| ");
+                        for (int l = 0; l < 3; l++) {
+                            printf("%d ", sudoku[i + k][j + l]);
+                        }
+                        printf("|\n");
+                    }
+                    printf("---------------------\n");
+                }
             }
         }
     }
     return NULL;
 }
+
