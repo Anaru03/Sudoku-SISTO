@@ -122,7 +122,8 @@ int validate_array(int* arr) {
 
 void* check_rows(void* arg) {
     printf("➡️ Revisando filas...\n");
-    #pragma omp parallel for schedule(dynamic)
+    omp_set_num_threads(4);  // Configurar número de hilos en esta función
+    #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int row[SIZE];
         for (int j = 0; j < SIZE; j++) {
@@ -138,7 +139,8 @@ void* check_rows(void* arg) {
 
 void* check_columns(void* arg) {
     printf("➡️ Revisando columnas...\n");
-    #pragma omp parallel for schedule(dynamic)
+    omp_set_num_threads(4);  // Configurar número de hilos en esta función
+    #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int column[SIZE];
         for (int j = 0; j < SIZE; j++) {
@@ -153,18 +155,21 @@ void* check_columns(void* arg) {
 }
 
 void* check_subgrids(void* arg) {
-    #pragma omp parallel for collapse(2) schedule(dynamic)
+    omp_set_num_threads(2);  // Configurar número de hilos en esta función
+    #pragma omp parallel for collapse(2)
     for (int i = 0; i < SIZE; i += 3) {
         for (int j = 0; j < SIZE; j += 3) {
             int subgrid[SIZE] = {0};
             int index = 0;
 
+            // Extraer los números del subgrid
             for (int k = 0; k < 3; k++) {
                 for (int l = 0; l < 3; l++) {
                     subgrid[index++] = sudoku[i + k][j + l];
                 }
             }
 
+            // Validar el subgrid
             if (!validate_array(subgrid)) {
                 #pragma omp critical
                 {
