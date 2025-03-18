@@ -130,8 +130,11 @@ void* check_rows(void* arg) {
         }
         if (!validate_array(row)) {
             printf("❌ Fila %d inválida.\n", i + 1);
-            valid = 0;
-        }
+            #pragma omp critical
+            {
+                valid = 0;
+            }
+        }        
     }
     return NULL;
 }
@@ -146,8 +149,12 @@ void* check_columns(void* arg) {
         }
         if (!validate_array(column)) {
             printf("❌ Columna %d inválida.\n", i + 1);
-            valid = 0;
+            #pragma omp critical
+            {
+                valid = 0;
+            }
         }
+        
     }
     return NULL;
 }
@@ -180,6 +187,7 @@ void* check_subgrids(void* arg) {
                         printf("|\n");
                     }
                     printf("---------------------\n");
+                    valid = 0;
                 }
             }
         }
