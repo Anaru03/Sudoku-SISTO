@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <sys/syscall.h>
 #include <omp.h>
+#include <stdbool.h>  // Agregamos la librería para usar "true" y "false"
 #include <sys/wait.h>
 
 #define SIZE 9
@@ -13,10 +14,6 @@
 // Matriz global del Sudoku
 int sudoku[SIZE][SIZE];
 int valid = 1;
-
-typedef struct {
-    int index;
-} thread_arg_t;
 
 void* check_rows(void* arg);
 void* check_columns(void* arg);
@@ -35,7 +32,10 @@ int main(int argc, char* argv[]) {
     read_sudoku_from_file(argv[1]);
     print_sudoku();
     printf("\n🔍 Revisando el Sudoku...\n\n");
-    
+
+    // Habilitar anidación de hilos
+    omp_set_nested(true);
+
     pid_t parent_pid = getpid();
     pid_t pid = fork();
     if (pid == 0) {
@@ -122,7 +122,6 @@ int validate_array(int* arr) {
 
 void* check_rows(void* arg) {
     printf("➡️ Revisando filas...\n");
-    omp_set_num_threads(4);  // Configurar número de hilos en esta función
     #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int row[SIZE];
@@ -139,7 +138,6 @@ void* check_rows(void* arg) {
 
 void* check_columns(void* arg) {
     printf("➡️ Revisando columnas...\n");
-    omp_set_num_threads(4);  // Configurar número de hilos en esta función
     #pragma omp parallel for
     for (int i = 0; i < SIZE; i++) {
         int column[SIZE];
@@ -155,7 +153,6 @@ void* check_columns(void* arg) {
 }
 
 void* check_subgrids(void* arg) {
-    omp_set_num_threads(2);  // Configurar número de hilos en esta función
     #pragma omp parallel for collapse(2)
     for (int i = 0; i < SIZE; i += 3) {
         for (int j = 0; j < SIZE; j += 3) {
@@ -171,6 +168,7 @@ void* check_subgrids(void* arg) {
 
             // Validar el subgrid
             if (!validate_array(subgrid)) {
+                // Sección crítica para evitar mezcla de impresión
                 #pragma omp critical
                 {
                     printf("\n❌ Subgrid en (%d, %d) inválido.\n", i + 1, j + 1);
